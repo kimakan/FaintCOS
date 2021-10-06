@@ -3,8 +3,8 @@ the 'ldark' directory. Additionally, it calculates the confidence limits
 and combines all spectra in the working directory. 
 
 Author: Kirill Makan
-Version: 1.0
 '''
+version = '1.1'
 
 import os
 import sys
@@ -124,13 +124,17 @@ def calc_lya_scatter_model(gcounts, wave_arr):
                             0.11368275 ,0.19347219  ,0.28874132  ,0.4030617 ,\
                             0.51270425 ,0.613789    ,0.70610535  ,0.78464127,\
                             0.84194565 ,0.8906022   ,0.92548954  ,0.9521525 ]])
-    err_up = np.interp(wave_arr, rel_err[0], rel_err[1])
-    err_down = np.interp(wave_arr, rel_err[0], rel_err[2])
+    err_up_sys = np.interp(wave_arr, rel_err[0], rel_err[1])
+    err_down_sys = np.interp(wave_arr, rel_err[0], rel_err[2])
     
-    Clya = max(gcounts[(wave_arr < 1225) & (wave_arr > 1205)])
-    
+    CountsInLyaRegion = gcounts[(wave_arr <= 1215.97) & (wave_arr >= 1215.37)]
+    Clya = np.mean(CountsInLyaRegion)
     
     Blya = a*Clya*np.exp(-np.power(wave_arr - lam_0, 2.)/(2.*b**2))
+    
+    Clya_err_stat = math.sqrt(Clya)/math.sqrt(len(CountsInLyaRegion))/Clya
+    err_up = np.sqrt(err_up_sys**2 + Clya_err_stat**2)
+    err_down = np.sqrt(err_down_sys**2 + Clya_err_stat**2)
     
     return Blya, err_up*Blya, err_down*Blya
     
@@ -196,6 +200,229 @@ def calc_conf_lim_kraft(counts, bkg):
     return cnt_err_down, cnt_err_up
 
 
+
+def createCDRPrimaryHeader(hdul, wave):
+    ''' Calculates confidence limits according to Kraft et al. 1991.
+    
+    Parameters:
+    ----------
+    hdul: hdu list from the x1d file 
+    
+    wave: wavelength array of the spectroscopic data
+    
+    
+    Returns:
+    ---------
+    hdu: custom primary header for the cdr file 
+    
+    '''
+    
+    hdu = fits.PrimaryHDU()
+    hdu.header['DATE'] = (datetime.utcnow().isoformat(timespec='seconds'),\
+                            "File creation date")
+    hdu.header['FILETYPE'] = (hdul[0].header['FILETYPE'], 
+                              'type of data found in the data file')
+    hdu.header['TELESCOP'] = (hdul[0].header['TELESCOP'],
+                              'telescope used to acquire data')
+    hdu.header['INSTRUME'] = (hdul[0].header['INSTRUME'], 
+                              'identifier for instrument used to acquire data')
+    hdu.header['EQUINOX'] = (hdul[0].header['EQUINOX'], 
+                             'equinox of celestial coord. system')
+    
+    hdu.header['TARGNAME'] = (hdul[0].header['TARGNAME'], 
+                              'proposer\'s target name')
+    hdu.header['RA_TARG'] = (hdul[0].header['RA_TARG'], 
+                             'right ascention of the target (deg)')
+    hdu.header['DEC_TARG'] = (hdul[0].header['DEC_TARG'], 
+                              'declination of the target (deg)')
+    
+    hdu.header['PROPOSID'] = (hdul[0].header['PROPOSID'], 
+                              'PEP proposal identifier')
+    
+    hdu.header['OPUS_VER'] = (hdul[0].header['OPUS_VER'], 
+                              'data processing software system version')
+    hdu.header['CSYS_VER'] = (hdul[0].header['CSYS_VER'], 
+                              'calibration software system version id')
+    hdu.header['CAL_VER'] = (hdul[0].header['CAL_VER'], 
+                             'CALCOS code version')
+    hdu.header['FCOS_VER'] = (version, 
+                              'FaintCOS code version')
+    
+    hdu.header['DETECTOR'] = (hdul[0].header['DETECTOR'],
+                              'FUV or NUV')
+    hdu.header['CENWAVE'] = (hdul[0].header['CENWAVE'], 
+                             'central wavelength of the spectrum')
+    
+    hdu.header['LIFE_ADJ'] = (hdul[0].header['LIFE_ADJ'], 
+                            'Life Time Adjustment Position')
+    hdu.header['SEGMENT'] = (hdul[0].header['SEGMENT'], 
+                            'FUV detector segment name (FUVA, FUVB or BOTH)')
+    hdu.header['OPT_ELEM'] = (hdul[0].header['OPT_ELEM'], 
+                              'optical element in use')
+    
+    
+    hdu.header['BANDWID'] = (max(wave)-min(wave), 
+                             'bandwidth of the data')
+    res = cos_res[(cos_res['LP'] == hdu.header['LIFE_ADJ']) & \
+                  (cos_res['OPT_ELEM'] == hdu.header['OPT_ELEM']) &\
+                  (cos_res['CENWAVE'] == hdu.header['CENWAVE'])]['R'][0]
+    hdu.header['SPECRES'] = (res, 
+                             'approx. resolving power at central wavelength')
+    hdu.header['CENTRWV'] = ((max(wave)+min(wave))/2.0, 
+                             'central wavelength of the data')
+    hdu.header['MINWAVE'] = (min(wave), 
+                             'minimum wavelength in spectrum')
+    hdu.header['MAXWAVE'] = (max(wave), 
+                             'maximum wavelength in spectrum')
+    
+    
+    if 'DATE-OBS' in hdul[0].header:
+        hdu.header['DATE-OBS'] = (hdul[0].header['DATE-OBS'], 
+                                  'UT date of start of observation(yyyy-mm-dd)')
+        hdu.header['EXPSTART'] = (hdul[0].header['EXPSTART'], 
+                                'observation start time (Modified Julian Date)')
+        hdu.header['EXPTIME'] = (hdul[0].header['EXPTIME'], 
+                                 'exposure duration (seconds)--calculated')
+    else:
+        hdu.header['DATE-OBS'] = (hdul[1].header['DATE-OBS'], 
+                                  'UT date of start of observation(yyyy-mm-dd)')
+        hdu.header['EXPSTART'] = (hdul[1].header['EXPSTART'], 
+                                'observation start time (Modified Julian Date)')
+        hdu.header['EXPTIME'] = (hdul[1].header['EXPTIME'], 
+                                 'exposure duration (seconds)--calculated')
+    
+    
+    hdu.header['ASN_ID'] = (hdul[0].header['ASN_ID'], 
+                            'unique identifier assigned to association')
+    
+    return hdu
+
+def createCoAddPrimaryHeader(headers, wave, exptime):
+    ''' Calculates confidence limits according to Kraft et al. 1991.
+    
+    Parameters:
+    ----------
+    hdul: hdu list from the x1d file 
+    
+    wave: wavelength array of the spectroscopic data
+    
+    exptime: exptime array of the spectroscopic data
+    
+    Returns:
+    ---------
+    hdu: custom primary header for the final co-add
+    
+    '''
+    
+    unique_pids = []
+    unique_cenwaves = []
+    unique_optelem = []
+    for hdr in headers:
+        if hdr['PROPOSID'] not in unique_pids:
+            unique_pids.append(hdr['PROPOSID'])
+        if hdr['CENWAVE'] not in unique_cenwaves:
+            unique_cenwaves.append(hdr['CENWAVE'])
+        if hdr['OPT_ELEM'] not in unique_optelem:
+            unique_optelem.append(hdr['OPT_ELEM'])
+    unique_pids.sort()
+    
+    hdu = fits.PrimaryHDU()
+    hdu.header['DATE'] = (datetime.utcnow().isoformat(timespec='seconds'),\
+                            "File creation date")
+    
+    hdu.header['FILETYPE'] = (headers[0]['FILETYPE'], 
+                              'type of data found in the data file')
+    hdu.header['TELESCOP'] = (headers[0]['TELESCOP'],
+                              'telescope used to acquire data')
+    hdu.header['INSTRUME'] = (headers[0]['INSTRUME'], 
+                              'identifier for instrument used to acquire data')
+    hdu.header['EQUINOX'] = (headers[0]['EQUINOX'], 
+                             'equinox of celestial coord. system')
+    
+    hdu.header['TARGNAME'] = (headers[0]['TARGNAME'], 
+                              'proposer\'s target name')
+    hdu.header['RA_TARG'] = (headers[0]['RA_TARG'], 
+                             'right ascention of the target (deg)')
+    hdu.header['DEC_TARG'] = (headers[0]['DEC_TARG'], 
+                              'declination of the target (deg)')
+    
+    
+    hdu.header['PROPOSID'] = (unique_pids.pop(0), 
+                              'PEP proposal identifier')
+    for i, pid in enumerate(unique_pids):
+        hdu.header['OTH_PID'+str(i)] = (pid, 
+                                        'other PEP proposal identifier')
+    
+    hdu.header['OPUS_VER'] = (headers[0]['OPUS_VER'], 
+                              'data processing software system version')
+    hdu.header['CSYS_VER'] = (headers[0]['CSYS_VER'], 
+                              'calibration software system version id')
+    hdu.header['CAL_VER'] = (headers[0]['CAL_VER'], 
+                             'CALCOS code version')
+    hdu.header['FCOS_VER'] = (version, 
+                              'FaintCOS code version')
+    
+    hdu.header['DETECTOR'] = (headers[0]['DETECTOR'],
+                              'FUV or NUV')
+    
+    
+    hdu.header['CENWAVE'] = (unique_cenwaves.pop(0), 
+                             'central wavelength of the spectrum')
+    for i, cenwave in enumerate(unique_cenwaves):
+        hdu.header['CENWAVE'+str(i)] = (cenwave, 
+                                    'other central wavelength of the spectrum')
+        
+    segments = [hdr['SEGMENT'] for hdr in headers]
+    segm = ""
+    if 'FUVA' in segments and 'FUVB' in segments:
+        segm = 'BOTH'
+    else:
+        segm = segments[0]
+        
+    hdu.header['SEGMENT'] = (segm, 
+                            'FUV detector segment name (FUVA, FUVB or BOTH)')
+    if 'G130M' in unique_optelem and 'G160M' in unique_optelem:
+        hdu.header['OPT_ELEM'] = ('FUVM', 
+                                'optical element in use')
+    else:
+        hdu.header['OPT_ELEM'] = (unique_optelem[0], 
+                                'optical element in use')
+    
+    
+    hdu.header['BANDWID'] = (max(wave)-min(wave), 
+                             'bandwidth of the data')
+    hdu.header['SPECRES'] = (min([hdr['SPECRES'] for hdr in headers]), 
+                             'smallest SPECRES at CENWAVE from all data sets')
+    hdu.header['CENTRWV'] = ((max(wave)+min(wave))/2.0, 
+                             'central wavelength of the data')
+    hdu.header['MINWAVE'] = (min(wave), 
+                             'minimum wavelength in spectrum')
+    hdu.header['MAXWAVE'] = (max(wave), 
+                             'maximum wavelength in spectrum')
+    
+    asn_ids = []
+    expstart = []
+    date_obs = []
+    for hdr in headers:
+        if hdr['ASN_ID'] not in asn_ids:
+            asn_ids.append(hdr['ASN_ID'])
+            expstart.append(hdr['EXPSTART'])
+            date_obs.append(hdr['DATE-OBS'])
+    sorted_dates = [x for _,x in sorted(zip(expstart, date_obs))]
+    hdu.header['DATE-OBS'] = (sorted_dates.pop(0), 
+                            'UT observation date for the first data set')
+    for i, d in enumerate(sorted_dates):
+        hdu.header['DATEOB'+str(i)] = (d,
+                                    'UT observation date for other data sets')
+        
+    hdu.header['EXPTIME'] = (int(max(exptime)), 
+                            'max exposure duration (seconds)--calculated')
+    hdu.header['ETIMEMED'] = (int(np.median(exptime)), 
+                            'median exposure duration (seconds)--calculated')
+    
+    return hdu
+    
+
 if __name__ == "__main__": 
     
     path_sci = "."
@@ -225,6 +452,8 @@ if __name__ == "__main__":
         print("ERROR: ldark is not defined!")
         sys.exit()   
     
+    print("FaintCOSv"+version, flush=True)
+    
     # load all darkframes in the 'ldark' directory
     print("Loading darkframes...", end=" ", flush=True)
     path_darkframes = [f for f in os.listdir(path_dark) if "corrtag" in f]
@@ -249,7 +478,7 @@ if __name__ == "__main__":
                                  "SEGMENT", "VOLTAGE"))
     print("OK")
     print(str(len(darkframes['FILE'])) + " darkframes have been found!")
-    # find all visits in the working directory and sort them
+    # find all datasets in the working directory and sort them
     datasets = Table(names=("ASN_ID", "TARGET", "OBS-DATE", "EXP_TIME", \
                             "OPT_ELEM", "CENTRWV", "FUVA", "FUVB"),\
                  dtype=('S10', 'S25', 'S23', 'i4', 'S5', 'i4', 'i4', 'i4'))
@@ -346,7 +575,8 @@ if __name__ == "__main__":
                              
         # open the corresponding 1dx file
         path_x1d = path_sci + corr_prefix + "_x1d.fits"
-        data_x1d = Table(fits.getdata(path_x1d))
+        hdul_x1d = fits.open(path_x1d)
+        data_x1d = Table(hdul_x1d[1].data)
         data_x1d = data_x1d[data_x1d['SEGMENT'] == segm]
                              
         # select only valid darkframes for this corrtag
@@ -670,18 +900,9 @@ if __name__ == "__main__":
                            format='D', \
                            unit='counts',\
                            array=bkg_lya_err_down)
-        hdu = fits.PrimaryHDU()
-        hdu.header['SEGMENT'] = segm
-        hdu.header['OPT_ELEM'] = opt_elem
-        hdu.header['ASN_ID'] = corr_hdul[0].header['ASN_ID']
-        hdu.header['TARGNAME'] = corr_hdul[0].header['TARGNAME']
-        hdu.header['DATE'] = (datetime.utcnow().isoformat(timespec='seconds'),\
-                              "File creation date")
-        hdu.header['TELESCOP'] = corr_hdul[0].header['TELESCOP']
-        hdu.header['INSTRUME'] = corr_hdul[0].header['INSTRUME']
-        hdu.header['RA_TARG'] = corr_hdul[0].header['RA_TARG']
-        hdu.header['DEC_TARG'] = corr_hdul[0].header['DEC_TARG']
-        hdu.header['PROPOSID'] = corr_hdul[0].header['PROPOSID']
+        
+        hdul_x1d[0].header['SEGMENT'] = segm
+        hdu = createCDRPrimaryHeader(hdul_x1d, wave)
         
         hdu_binary = fits.BinTableHDU.from_columns([col1, col2, col3, col4,\
                                                     col5, col6, col7, col8,\
@@ -703,7 +924,7 @@ if __name__ == "__main__":
 
 
         
-    # coadding exposures per visit
+    # coadding exposures for ever dataset
     print("Coadding exposures for every dataset.")
     hdul_ar = []
     visit_data = []
@@ -712,6 +933,7 @@ if __name__ == "__main__":
         hdul_ar.append(fits.open(f))
     for asn in unique_datasets:
         targname = ""
+        segm = ""
         current_hdul = hdul_ar[0]
         seg_fuva = []
         seg_fuvb = []
@@ -726,9 +948,12 @@ if __name__ == "__main__":
         exposures = []
         if len(seg_fuvb) > 0:
             exposures.append(seg_fuvb)
+            segm = 'FUVA'
         if len(seg_fuva) > 0:
             exposures.append(seg_fuva)
-
+            segm = 'FUVB'
+        if len(seg_fuva) > 0 and len(seg_fuvb) > 0:
+            segm = 'BOTH'
         coadded_tab = []
         for expos in exposures:
             if len(expos) > 0:
@@ -777,7 +1002,7 @@ if __name__ == "__main__":
                     
                     lya_scatter = np.array(exp_data['LYA_SCATTER'])
                     total_lya = np.add(total_lya, dq_wgt * lya_scatter)
-                           
+                    ''''       
                     lya_scatter_err_up = np.array(exp_data['LYA_SCATTER_ERR_UP'])
                     total_lya_err_up = \
                     np.sqrt(np.add(np.power(total_lya_err_up, 2), \
@@ -787,6 +1012,12 @@ if __name__ == "__main__":
                     total_lya_err_down = \
                     np.sqrt(np.add(np.power(total_lya_err_down, 2), \
                                    np.power(dq_wgt * lya_scatter_err_down, 2)))
+                    '''
+                    lya_scatter_err_up = np.array(exp_data['LYA_SCATTER_ERR_UP'])
+                    total_lya_err_up = total_lya_err_up + dq_wgt * lya_scatter_err_up
+                    
+                    lya_scatter_err_down = np.array(exp_data['LYA_SCATTER_ERR_DOWN'])
+                    total_lya_err_down = total_lya_err_down + dq_wgt * lya_scatter_err_down
                     
                     np.seterr(divide='ignore')
                     flux_calib = np.array(exp_data['CALIB'])
@@ -810,21 +1041,7 @@ if __name__ == "__main__":
                                      "LYA_SCATTER_ERR_UP", "LYA_SCATTER_ERR_DOWN"))
                 
                 coadded_tab.append(tdata)
-        hdu = fits.PrimaryHDU()
-        hdu.header['TARGNAME'] = current_hdul[0].header['TARGNAME']
-        hdu.header['SEGMENT'] = current_hdul[0].header['SEGMENT']
-        hdu.header['OPT_ELEM'] = current_hdul[0].header['OPT_ELEM']
-        hdu.header['ASN_ID'] = current_hdul[0].header['ASN_ID']
-        hdu.header['TARGNAME'] = targname
-        hdu.header['DATE'] = (datetime.utcnow().isoformat(timespec='seconds'),\
-                              "File creation date")
-        hdu.header['TELESCOP'] = current_hdul[0].header['TELESCOP']
-        hdu.header['INSTRUME'] = current_hdul[0].header['INSTRUME']
-        hdu.header['RA_TARG'] = current_hdul[0].header['RA_TARG']
-        hdu.header['DEC_TARG'] = current_hdul[0].header['DEC_TARG']
-        hdu.header['PROPOSID'] = current_hdul[0].header['PROPOSID']
-        hdu.header['COMMENT'] = "Coadded spectra for a single dataset " + \
-                                "with improved calibration"
+        
         if len(coadded_tab) > 1:
             max_wl_fuvb = max(np.array(coadded_tab[0]['WAVELENGTH']))
             min_wl_fuva = min(np.array(coadded_tab[1]['WAVELENGTH']))
@@ -839,8 +1056,16 @@ if __name__ == "__main__":
                                    > min_wl_fuva]])
         else:
             coadded_data = coadded_tab[0]
+        
+        current_hdul[0].header['SEGMENT'] = segm
+        hdu = createCDRPrimaryHeader(current_hdul, coadded_data['WAVELENGTH'])
+        hdu.header['EXPTIME'] = max(coadded_data['EXPTIME'])
+        hdu.header['COMMENT'] = "Coadded spectra for a single dataset " + \
+                                "with improved calibration"
+                            
         visit_data.append(coadded_data)
         visit_hdu.append(hdu)
+
         binary_hdu = fits.BinTableHDU(coadded_data)
         hdul = fits.HDUList([hdu, binary_hdu])
         saved_file = path_sci + asn.decode("utf-8") + "_dataset_sum.fits"
@@ -849,7 +1074,7 @@ if __name__ == "__main__":
               " The spectrum is stored under " + saved_file)
     
     # Bin all _cdr_raw.fits files with the binsize = BIN_PX
-    if BIN_VISIT:
+    if BIN_DATASET:
         print("\n")
         print("Binning every dataset with " + str(BIN_PX) + " pixels.")
         for d in range(len(visit_data)):
@@ -1017,7 +1242,9 @@ if __name__ == "__main__":
                                unit='counts',\
                                array=binned_lya_err_down)
             
-            hdu = visit_hdu[d]
+            #hdu = visit_hdu[d]
+            hdu = createCDRPrimaryHeader([visit_hdu[d]], binned_wave)
+            
             binned_hdu_binary = fits.BinTableHDU.from_columns([col1, col2, col3, \
                                                         col4, col5, col6, col7, \
                                                         col8, col9, col10, col11,\
@@ -1030,16 +1257,16 @@ if __name__ == "__main__":
             print(asn + " is binned and stored in " + saved_file)
             print("\n")
 
-    # Co-adding routine for all visits in the working folder
-    # It works for different setups, but for the same object and grating!!!
-    if COADD_ALL_VISITS:
+    # Co-adding routine for all datasets in the working folder
+    # It works for different setups, but only for the same object and grating!!!
+    if COADD_ALL_DATASETS:
         # Coadding all exposures    
         cdr_data = []
         cdr_hdu = []
         for f in cdr_files:
             tmp = fits.open(f)
             t = Table(tmp[1].data)
-            h = tmp[0]
+            h = tmp[0].header
             t = t[t['CALIB'] > 0]
             cdr_data.append(t)
             cdr_hdu.append(h)
@@ -1066,6 +1293,7 @@ if __name__ == "__main__":
         print("max wavelength = " + str(wl_max))
         bins = len(tot_wavelength)
         tot_exptime = np.zeros(shape=len(tot_wavelength), dtype=np.float32)
+        norm_exptime = np.zeros(shape=len(tot_wavelength), dtype=np.float32)
         tot_dq = np.full(shape=len(tot_wavelength), \
                          fill_value=20000, dtype=np.int32)
         tot_calib = np.zeros(shape=len(tot_wavelength), dtype=np.float32)
@@ -1105,6 +1333,7 @@ if __name__ == "__main__":
                     data_slices.append(d_slice)
     
             bin_exptime = np.ndarray(shape=len(data_slices), dtype=np.float32)
+            bin_normtime = np.ndarray(shape=len(data_slices), dtype=np.float32)
             bin_calib = np.ndarray(shape=len(data_slices), dtype=np.float32)
             bin_flat = np.ndarray(shape=len(data_slices), dtype=np.float32)
             bin_dq = 16384
@@ -1136,6 +1365,7 @@ if __name__ == "__main__":
                 calib_wgt = np.array(data_slices[d]['EXPTIME'])
                 bin_calib_wgt[d] = np.sum(dq_wgt * calib_wgt)
                 bin_exptime[d] = np.sum(dq_wgt * exptime)
+                bin_normtime[d] = max(dq_wgt * exptime)
                 bin_calib[d] = np.sum(calib) / float(len(calib))
                 bin_flat[d] = np.sum(flat_corr) / float(len(flat_corr))
                 bin_counts[d] = np.sum(dq_wgt * gcounts)
@@ -1153,6 +1383,7 @@ if __name__ == "__main__":
     
     
             tot_exptime[i] = np.sum(bin_exptime)
+            norm_exptime[i] = np.sum(bin_normtime)
             if np.sum(bin_calib_wgt) != 0:
                 tot_calib[i] = np.sum(bin_calib_wgt * bin_calib)/\
                                np.sum(bin_calib_wgt)
@@ -1169,8 +1400,8 @@ if __name__ == "__main__":
             tot_darks[i] = np.sum(bin_darks)
             tot_dc_err[i] = np.sqrt(np.sum(np.power(bin_dc_err, 2)))
             tot_lya[i] = np.sum(bin_lya)
-            tot_lya_err_up[i] = np.sqrt(np.sum(np.power(bin_lya_err_up, 2)))
-            tot_lya_err_down[i] = np.sqrt(np.sum(np.power(bin_lya_err_down, 2)))
+            tot_lya_err_up[i] = np.sum(bin_lya_err_up)
+            tot_lya_err_down[i] = np.sum(bin_lya_err_down)
         
         print("\n")
         tot_flux = np.divide(tot_counts - tot_darks - tot_lya, \
@@ -1269,12 +1500,13 @@ if __name__ == "__main__":
                            unit='counts',\
                            array=tot_lya_err_down)
         
-        hdu = fits.PrimaryHDU()
-        hdu = cdr_hdu[0]
-        hdu.header['TARGNAME'] = targname
-        hdu.header['OPT_ELEM'] = opt_elem
-        hdu.header["DATE"] = (datetime.utcnow().isoformat(timespec='seconds'),\
-                          "File creation date")
+        #hdu = fits.PrimaryHDU()
+        #hdu = cdr_hdu[0]
+        #hdu.header['TARGNAME'] = targname
+        #hdu.header['OPT_ELEM'] = opt_elem
+        #hdu.header["DATE"] = (datetime.utcnow().isoformat(timespec='seconds'),\
+        #                  "File creation date")
+        hdu = createCoAddPrimaryHeader(cdr_hdu, tot_wavelength, norm_exptime)
         hdu_binary = fits.BinTableHDU.from_columns([col1, col2, col3, col4,\
                                                     col5, col6, col7, col8,\
                                                     col9, col10, col11, col12,\

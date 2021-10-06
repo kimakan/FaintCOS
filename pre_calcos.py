@@ -3,7 +3,6 @@ CALCOS pipeline. Additionally, it adapts the extraction windows in the _1dx
 files and PHA limits in the _pha files. 
 
 Author: Kirill Makan
-Version: 1.0
 '''
 
 import os
@@ -72,7 +71,7 @@ def change_rawtag(path_rawtag, path_ref):
     
     success = True
     
-    # keywords for the reference files
+    # keywords for the reference filesaccess from your network is temporarily disabled 
     ref_keywords = \
         ['FLATFILE', 'DEADTAB', 'BPIXTAB', 'SPOTTAB', 'GSAGTAB',\
         'HVTAB', 'BRFTAB', 'GEOFILE', 'DGEOFILE', 'TRACETAB', 'PROFTAB',\
@@ -193,6 +192,7 @@ def set_aperture(path_rawtag, path_ref):
                 # old 1dx files have same height for both background windows
                 hdul[1].data[row]['BHEIGHT'] = float(custom_1dx['B_HGT1'])
             hdul.flush()
+        data_1dx = fits.getdata(path_1dx)
         print(data_1dx[row])
 
 

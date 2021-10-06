@@ -1,7 +1,6 @@
 '''Parameters for the pre_calcos.py and post_calcos.py scripts. 
 
 Author: Kirill Makan
-Version: 1.0
 '''
 
 
@@ -33,17 +32,17 @@ BIN_PX = 7            # in pixels for the co-add per visit
 
 
 # set a custom wavelength interval for the co-added spectrum
-# works only for COADD_ALL_VISITS = True
+# works only for COADD_ALL_DATASETS = True
 CUSTOM_INTERVAL = False
 WAVE_MIN = 1100.
 WAVE_MAX = 1700.
 
 
 # Switches for binning and coadding routines
-BIN_VISIT = True           # Bins every visit in the working folder in BIN_PX
+BIN_DATASET = False          # Bins every dataset in the working folder in BIN_PX
                             # pixels. 
                             
-COADD_ALL_VISITS = True    # Co-adds AND bins ALL visits in the working folder
+COADD_ALL_DATASETS = True   # Co-adds AND bins ALL datasets in the working folder
                             # in BIN_SIZE(in angstroms) bins. MAKE SURE THAT 
                             # EVERY EXPOSURE IN THE FOLDER IS FOR THE SAME 
                             # TARGET AND GRATING BEFORE YOU TURN THIS ON!!!
@@ -895,4 +894,87 @@ custom_pha.add_row(["G160M", "FUVB", PHA_G160M_FUVB[0], PHA_G160M_FUVB[1]])
 custom_pha.add_row(["G140L", "FUVA", PHA_G140L_FUVA[0], PHA_G140L_FUVA[1]])
 custom_pha.add_row(["G140L", "FUVB", PHA_G140L_FUVB[0], PHA_G140L_FUVB[1]])
 
+
+
+
+# correct HST/COS resolution at different LP according to the LSFs
+ 
+cos_res = Table(names=("LP", "OPT_ELEM", "CENWAVE", "R"), \
+                dtype=('i4', 'S5', 'i4', 'i4'))
+
+# spectral resolution for LP 1
+cos_res.add_row([1, 'G130M', 1222, 13000])
+cos_res.add_row([1, 'G130M', 1291, 19000])
+cos_res.add_row([1, 'G130M', 1300, 19000])
+cos_res.add_row([1, 'G130M', 1309, 19000])
+cos_res.add_row([1, 'G130M', 1318, 18500])
+cos_res.add_row([1, 'G130M', 1327, 18500])
+
+cos_res.add_row([1, 'G160M', 1577, 19500])
+cos_res.add_row([1, 'G160M', 1589, 19500])
+cos_res.add_row([1, 'G160M', 1600, 20000])
+cos_res.add_row([1, 'G160M', 1611, 20000])
+cos_res.add_row([1, 'G160M', 1577, 20000])
+
+cos_res.add_row([1, 'G140L', 1105, 1900])
+cos_res.add_row([1, 'G140L', 1230, 2300])
+cos_res.add_row([1, 'G140L', 1280, 2400])
+
+
+# spectral resolution for LP 2
+cos_res.add_row([2, 'G130M', 1055, 4500])
+cos_res.add_row([2, 'G130M', 1096, 7500])
+cos_res.add_row([2, 'G130M', 1222, 13500])
+cos_res.add_row([2, 'G130M', 1291, 16500])
+cos_res.add_row([2, 'G130M', 1300, 16500])
+cos_res.add_row([2, 'G130M', 1309, 16500])
+cos_res.add_row([2, 'G130M', 1318, 16500])
+cos_res.add_row([2, 'G130M', 1327, 17000])
+
+cos_res.add_row([2, 'G160M', 1577, 18000])
+cos_res.add_row([2, 'G160M', 1589, 18000])
+cos_res.add_row([2, 'G160M', 1600, 18000])
+cos_res.add_row([2, 'G160M', 1611, 18000])
+cos_res.add_row([2, 'G160M', 1623, 18000])
+
+cos_res.add_row([2, 'G140L', 1105, 1300])
+cos_res.add_row([2, 'G140L', 1280, 1700])
+
+
+# spectral resolution for LP 3
+cos_res.add_row([3, 'G130M', 1222, 12000])
+cos_res.add_row([3, 'G130M', 1291, 16500])
+cos_res.add_row([3, 'G130M', 1300, 16500])
+cos_res.add_row([3, 'G130M', 1309, 16500])
+cos_res.add_row([3, 'G130M', 1318, 16500])
+cos_res.add_row([3, 'G130M', 1327, 16500])
+
+cos_res.add_row([3, 'G160M', 1577, 18300])
+cos_res.add_row([3, 'G160M', 1589, 18000])
+cos_res.add_row([3, 'G160M', 1600, 17700])
+cos_res.add_row([3, 'G160M', 1611, 17300])
+cos_res.add_row([3, 'G160M', 1623, 17000])
+
+cos_res.add_row([3, 'G140L', 1105, 1500])
+cos_res.add_row([3, 'G140L', 1280, 1900])
+
+
+# spectral resolution for LP 4
+cos_res.add_row([4, 'G130M', 1222, 13500])
+cos_res.add_row([4, 'G130M', 1291, 14500])
+cos_res.add_row([4, 'G130M', 1300, 15000])
+cos_res.add_row([4, 'G130M', 1309, 15000])
+cos_res.add_row([4, 'G130M', 1318, 15000])
+cos_res.add_row([4, 'G130M', 1327, 15000])
+
+cos_res.add_row([4, 'G160M', 1533, 16000])
+cos_res.add_row([4, 'G160M', 1577, 16500])
+cos_res.add_row([4, 'G160M', 1589, 16500])
+cos_res.add_row([4, 'G160M', 1600, 16500])
+cos_res.add_row([4, 'G160M', 1611, 16000])
+cos_res.add_row([4, 'G160M', 1623, 16000])
+
+cos_res.add_row([4, 'G140L', 800, 700])
+cos_res.add_row([4, 'G140L', 1105, 900])
+cos_res.add_row([4, 'G140L', 1280, 1000])
 
