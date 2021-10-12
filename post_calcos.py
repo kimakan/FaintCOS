@@ -948,10 +948,10 @@ if __name__ == "__main__":
         exposures = []
         if len(seg_fuvb) > 0:
             exposures.append(seg_fuvb)
-            segm = 'FUVA'
+            segm = 'FUVB'
         if len(seg_fuva) > 0:
             exposures.append(seg_fuva)
-            segm = 'FUVB'
+            segm = 'FUVA'
         if len(seg_fuva) > 0 and len(seg_fuvb) > 0:
             segm = 'BOTH'
         coadded_tab = []
