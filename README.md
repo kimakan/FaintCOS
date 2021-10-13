@@ -209,10 +209,10 @@ CUSTOM_INTERVAL:        If TRUE, the co-add routine will use custom wavelength r
                         If FALSE, the co-add routine will use max. and min. wavelength of 
                         all available data.
                         
-BIN_VISIT:              If TRUE, the spectra for every data set will be binned in BIN_PX pixels
+BIN_DATASET:            If TRUE, the spectra for every data set will be binned in BIN_PX pixels
                         and stored in the working folder as TARGETNAME_DATASET_Npx_binned.fits
                         
-COADD_ALL_VISITS:       If TRUE, the spectra of all data sets in the working folder will be 
+COADD_ALL_DATASETS:     If TRUE, the spectra of all data sets in the working folder will be 
                         co-added to a single spectrum with binning size BIN_SIZE Angstrom.
                         !!!FOR THIS TO WORK PROPERLY, MAKE SURE TO HAVE SPECTRA FOR THE SAME
                         OBJECT AND RESOLUTION (M OR L) IN THE WORKING FOLDER!!!
