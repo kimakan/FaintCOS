@@ -1,110 +1,216 @@
-'''Parameters for the pre_calcos.py and post_calcos.py scripts. 
-
-Author: Kirill Makan
 '''
+This is the FaintCOS v1.2 configuration file with parameters for the
+pre_calcos.py and post_calcos.py scripts. 
 
+Authors: Kirill Makan, Gabor Worseck
+'''
 
 from astropy.table import Table
 
 
+'''
+-------------------------------------------------------------------------------
+                  Parameters for Binning and Coadding
+-------------------------------------------------------------------------------
+'''
+BIN_DATASET = True       # Bin the coadded spectrum of every data set (CALCOS
+                         # association file) in the science directory by BIN_PX
+                         # pixels. Can be set to False if the target has
+                         # multiple data sets.
+BIN_PX = 3               # binning factor in pixels for each data set
+
+# Recommended BIN_PX to obtain a sampling of 2-3 pixels per resolution element
+# (varies with grating, central wavelength and COS lifetime position)
+# For the G130M standard modes binning by 4 at LP2 and LP3 is at or slightly
+# below 2 pixels per resolution element. The same holds for G160M at LP4.
+# For G130M/1055A, 1096A and 1222A COS Segment A spectra can be binned by
+# 5-8 pixels due to the much lower resolution compared to the standard setups,
+# but the reductions need to be done separately.
+# LP         1    2    3    4
+# G130M      3    3-4  3-4  4
+# G160M      3    3    3    3-4
+# G140L      3    4    3-4  7
+
+COADD_ALL_DATASETS = True # Coadd and rebin all exposures from all data sets
+                          # (i.e. from several CALCOS association files) in the
+                          # science directory using a common wavelength grid
+                          # with constant dispersion BIN_SIZE in Angstroem.
+                          # Verify that all exposures are for the same target
+                          # and using either G130M/G160M or G140L. It assumes
+                          # negligible target variability and flux calibration
+                          # errors. This coadd is turned off for single data
+                          # sets (use BIN_DATASET instead). 
+BIN_SIZE = 0.04           # bin size in Angstrom for the total coadd
+
+# Recommended BIN_SIZE to obtain a sampling of 2-3 pixels per resolution element
+# (varies with grating, central wavelength and COS lifetime position). Combining
+# exposures from several central wavelengths, G130M/G160M, or LPs will result
+# in an effective resolution across the wavelength range that may be difficult
+# to quantify. Don't merge G130M standard modes and blue modes (1055A, 1096A,
+# 1222A) unless you don't care about the degrading resolution.
+# For the G130M standard modes a bin size of 0.04A at LP2 and LP3 is at or
+# slightly below 2 pixels per resolution element. 
+# LP         1    2    3    4
+# G130M      0.03 0.04 0.04 0.04
+# G160M      0.04 0.04 0.04 0.04-0.045
+# G140L      0.24 0.32 0.32 0.56
+
 
 '''
 -------------------------------------------------------------------------------
-                PIPELINE PARAMETERS
+                  Parameters for Background Estimation
 -------------------------------------------------------------------------------
 '''
+# Estimation of background (dark current and scattered light) for each exposure
+# in science directory, generation of 1D spectra (*_cdr_*) for further coadd
+# Set this flag to False only if you have manually adjusted the calibration
+# curves of data sets to correct for target variability or flux calibration
+# issues between segments, gratings or COS lifetime positions
+REDUCE_EXPOSURES = True
 
-# constants for the selection of darks
-DARK_EXPSTART_INTERVAL = 30.# in days; time interval for the slection of the
-                            # darks; EXPSTART(science) +/- DARK_EXPSTART_INTERVAL
-MIN_DARKS = 5           # min. number of darks needed for the background model
-KS_THRESHOLD = 0.03     # initial Kolmogorow-Smirnow statistic threshold
-KS_STEP = 0.005         # add this value to KS_THRESHOLD if number of selected
-                        # dark is below MIN_DARKS
+# Selection of dark frames obtained in similar conditions as science data
+DARK_EXPSTART_INTERVAL = 30. # in days; time interval for the selection of
+                             # contemporary dark frames
+                             # EXPSTART(science) +/- DARK_EXPSTART_INTERVAL
+MIN_DARKS = 5            # min. number of darks needed for the background model
+KS_THRESHOLD = 0.03      # initial Kolmogorov-Smirnov statistic threshold
+KS_STEP = 0.005          # add this value to KS_THRESHOLD if number of selected
+                         # dark is below MIN_DARKS
 
-# window for the running average of the dark current (must be an ODD number!)
+# window for the running average of the dark current (must be an odd number!)
 BKG_AV = 501
-# -----------------------------------------------------------------------------
 
-# binning 
-BIN_SIZE = 0.24       # in angstrom for the total co-add
-BIN_PX = 7            # in pixels for the co-add per visit
-
-
-# set a custom wavelength interval for the co-added spectrum
-# works only for COADD_ALL_DATASETS = True
-CUSTOM_INTERVAL = False
-WAVE_MIN = 1100.
-WAVE_MAX = 1700.
-
-
-# Switches for binning and coadding routines
-BIN_DATASET = False          # Bins every dataset in the working folder in BIN_PX
-                            # pixels. 
-                            
-COADD_ALL_DATASETS = True   # Co-adds AND bins ALL datasets in the working folder
-                            # in BIN_SIZE(in angstroms) bins. MAKE SURE THAT 
-                            # EVERY EXPOSURE IN THE FOLDER IS FOR THE SAME 
-                            # TARGET AND GRATING BEFORE YOU TURN THIS ON!!!
-
-
-
-# bad regions near the geocoronal emission lines (Ly alpha, NI, OI)
+# Dark calibration exclusion regions near the geocoronal emission lines
+# (Ly alpha, NI, OI), default values are good
 BAD_REGIONS_G130M = [[1199.0, 1235.0], \
                      [1195.0, 1200.0], \
                      [1295.0, 1312.0]]    
 BAD_REGIONS_G140L = [[1175.0, 1240.0], \
-                     [1285.0, 1325.0]]  
+                     [1285.0, 1325.0]]
 
-''' Calculations of the confidence limits
-Standard version of the code calculates confidence limits
-according to Kraft et al. 1991
-In order to use confidence limits from Feldman & Cousins 1998, you need to 
-install additional module CustomConfLim (see README.md)
+
 '''
+-------------------------------------------------------------------------------
+              Calculation of Poisson Statistical Flux Errors
+-------------------------------------------------------------------------------
+'''
+# Poisson statistical errors (two-sided, 68.26% confidence i.e. 1 sigma) of the
+# flux are computed accounting for the background (total counts include unwanted
+# background, Gehrels et al. 1986 does not hold). Two methods are implemented:
+# 1. Frequentist method: Feldman & Cousins 1998, Phys.Rev. D., 57, 3873. The
+#    algorithm is accurate but slow. To use it you need to install the module
+#    CustomConfLim (see README.md).
+# 2. Bayesian method: Kraft et al. 1991, ApJ, 374, 344 implemented in astropy.
+#    The error bar is for the 68.26% two-sided minimal (??) credible interval
+#    around the posterior maximum (Kraft et al.). The commonly chosen
+#    equal-tailed credible interval is slightly different!
+# By default use the faster Bayesian method. To use the frequentist method
+# install the CustomConfLim module and set the following switch to True.
 FELDMAN_COUSINS = False
 
 
-
-
-
-
-'''PHA limits for the PHACORR
-
-Please check the PHA distribution of your scientific data to determine the 
-limits. WARNING! It will change all _pha files in the 'lref' directory!!!
 '''
+-------------------------------------------------------------------------------
+                 Custom Wavelength Ranges and Cosmetics
+-------------------------------------------------------------------------------
+'''
+TRIM_EDGE = True         # Trim detector edges outside active detector area in
+                         # coadded rebinned spectra, no reason to turn this off
+TRIM_WAVE = False        # Restrict wavelength range of coadded rebinned spectra
+                         # this is good for blue G130M or G140L modes that
+                         # include poorly calibrated low-sensitivity range at
+                         # shortest or longest wavelengths, this is cosmetics
+TRIM_MIN = 1000.         # minimum wavelength in Angstroem
+TRIM_MAX = 2000.         # maximum wavelength in Angstroem
 
+
+
+# set a custom wavelength interval for the co-added spectrum
+# work
+CUSTOM_INTERVAL = False  # Set a custom wavelength range for the coadded
+                         # spectrum from multiple data sets. This works only if
+                         # COADD_ALL_DATASETS = True and essentially fixes the
+                         # wavelength grid
+WAVE_MIN = 1000.         # minimum wavelength in Angstroem 
+WAVE_MAX = 2000.         # maximum wavelength in Angstroem
+
+
+'''
+-------------------------------------------------------------------------------
+             MAST High-level Science Product Keywords (if any)
+-------------------------------------------------------------------------------
+'''
+HLSP_write = False  # Switch to include HLSP keywords and to generate output
+                    # files following the HLSP naming convention (hlsp_*.fits)
+HLSP_id = ''        # HLSP identifier (acronym)
+HLSP_name = ''      # Title for HLSP project, long form
+HLSP_lead = ''      # Full name of HLSP project lead
+HLSP_ver = ''       # Version identifier for HLSP product
+HLSP_doi = ''       # Digital Object Identifier for the HLSP data collection
+HLSP_referenc = ''  # Bibliographic identifer (ADS bibcode)
+
+
+'''
+-------------------------------------------------------------------------------
+                    COS Detector Pulse Height Limits
+-------------------------------------------------------------------------------
+'''
+# For COS time-tag data the lowest and highest detector pulse heights indicate
+# very likely dark current. Limiting the range of pulse heights to be included
+# in the science spectrum limits the dark current, which is important for faint
+# background-limited targets. The range of scientifically useful pulse heights
+# depends on the used COS lifetime position and the used voltage level to
+# moderate detector gain sag.
+# Inspect the pulse height (PHA) distributions of the CALCOS corrtag files to
+# determine these limits (limit values are included as science)! Then re-run
+# CALCOS with custom limits.
+# The defaults below are conservative and work for most COS science data. Near
+# the end of life of a COS liftime position the range may shift to very low
+# values, even to PHA<2 near geocoronal lines. 
+# Running pre_calcos.py with any setting below updates all _pha files in the
+# 'lref' directory.
 PHA_G130M_FUVA = [2, 16]
 PHA_G130M_FUVB = [2, 16]
-
 PHA_G160M_FUVA = [2, 16]
 PHA_G160M_FUVB = [2, 16]
-
 PHA_G140L_FUVA = [2, 16]
 PHA_G140L_FUVB = [2, 16]
 
 
-'''Definitions of the extraction and background windows for different setups.
-
-The default values for the extraction windows refer to the 95% of the total
-light. Please change the values ONLY if you know exactly what you are doing!
-
-The background windows were chosen empirically according to the positions of 
-the extraction window and calibration spectrum. The default height of the
-windows is 40px.
-
-
-!!!WARNING!!! EVERY SETUP SHOULD HAVE ONLY ONE DEFINITION OF THE WINDOWS!!!!!
-
-
-The format for the window parameters is following:
-opt_elem.append(OPT_ELEM)
-cen_wave.append(CENWAVE)
-segment.append(SEGMENT)
-ext_win.append([YFULL_MIN, YFULL_MAX])
-bkg_win.append([YFULL_MIN1, YFULL_MAX1, YFULL_MIN2, YFULL_MAX2])
 '''
+-------------------------------------------------------------------------------
+    Detector Windows for Science Extraction and Dark Current Calibration
+-------------------------------------------------------------------------------
+'''
+# The long list below defines the rectangular COS detector windows for the
+# extraction of the science spectrum and for the calibration of the dark
+# current. The science extraction windows change with COS lifetime position,
+# grating, and central wavelength. They are currently defined for all COS modes
+# used at COS lifetime positions 1-4 except for G140L/1280A at LP1 and all
+# Segment B spectra of G140L/1280A (which may be poorly calibrated in wavelength
+# and flux). At any scientifially useful wavelength (i.e. except very
+# low-response regions of the G140L that also have the strongest astigmatism)
+# the science extraction apertures include >95% of the total light of a point
+# source that has been centered in the COS Primary Science Aperture. The windows
+# have been defined using observations of flux calibration standard stars.
+# For each setup the two dark current calibration windows were chosen
+# empirically according to the positions of the extraction window and the
+# wavelength calibration spectrum. Their default height is 40 pixels.
+# Running pre_calcos.py with any setting below updates all _1dx files in the
+# 'lref' directory.
+
+# Please change all default values ONLY if you know exactly what you are doing!
+# Every setup shall have only one window definition.
+# Changes are necessary for extended targets or if the target acquisition
+# failed (in that case also check the wavelength and flux calibration!).
+# WARNING: Any flux calibration of extended targets is compromised by the
+# vignetting of the COS Primary Science Aperture.
+# The format for the window parameters is following:
+# opt_elem.append(OPT_ELEM)
+# cen_wave.append(CENWAVE)
+# segment.append(SEGMENT)
+# ext_win.append([YFULL_MIN, YFULL_MAX])
+# bkg_win.append([YFULL_MIN1, YFULL_MAX1, YFULL_MIN2, YFULL_MAX2])
 
 lp = []
 opt_elem = []
@@ -866,8 +972,13 @@ ext_win.append([468, 484])
 bkg_win.append([403, 443, 508, 548])
 
 
-
-# define a table with the extraction and background windows for the easy access
+'''
+-------------------------------------------------------------------------------
+                             Parameter Tables
+-------------------------------------------------------------------------------
+'''
+# create an astropy table with the extraction and background windows for easy
+# access
 custom_xtractab = Table(names=("INDEX", "LP", "OPT_ELEM", "SEGMENT", \
                                "CENWAVE","B_SPEC", "HEIGHT", "B_BKG1", \
                                "B_BKG2","B_HGT1", "B_HGT2"), \
@@ -883,8 +994,7 @@ for i in range(len(opt_elem)):
                             bkg_win[i][1] - bkg_win[i][0],\
                             bkg_win[i][3] - bkg_win[i][2]])
 
-
-# define a table with pha limits for the easy access
+# create an astropy table with PHA limits for easy access
 custom_pha = Table(names=("OPT_ELEM", "SEGMENT", "LLT", "ULT"),\
                    dtype=('S7', 'S5', 'i4', 'i4'))
 custom_pha.add_row(["G130M", "FUVA", PHA_G130M_FUVA[0], PHA_G130M_FUVA[1]])
@@ -894,15 +1004,13 @@ custom_pha.add_row(["G160M", "FUVB", PHA_G160M_FUVB[0], PHA_G160M_FUVB[1]])
 custom_pha.add_row(["G140L", "FUVA", PHA_G140L_FUVA[0], PHA_G140L_FUVA[1]])
 custom_pha.add_row(["G140L", "FUVB", PHA_G140L_FUVB[0], PHA_G140L_FUVB[1]])
 
-
-
-
-# correct HST/COS resolution at different LP according to the LSFs
- 
+# create an astropy table with the correct HST/COS spectral resolving power at
+# different lifetime positions according to the tabulated LSFs
+# these values are written into output header keywords
 cos_res = Table(names=("LP", "OPT_ELEM", "CENWAVE", "R"), \
                 dtype=('i4', 'S5', 'i4', 'i4'))
 
-# spectral resolution for LP 1
+# spectral resolving power for LP 1
 cos_res.add_row([1, 'G130M', 1222, 13000])
 cos_res.add_row([1, 'G130M', 1291, 19000])
 cos_res.add_row([1, 'G130M', 1300, 19000])
@@ -920,8 +1028,7 @@ cos_res.add_row([1, 'G140L', 1105, 1900])
 cos_res.add_row([1, 'G140L', 1230, 2300])
 cos_res.add_row([1, 'G140L', 1280, 2400])
 
-
-# spectral resolution for LP 2
+# spectral resolving power for LP 2
 cos_res.add_row([2, 'G130M', 1055, 4500])
 cos_res.add_row([2, 'G130M', 1096, 7500])
 cos_res.add_row([2, 'G130M', 1222, 13500])
@@ -940,8 +1047,7 @@ cos_res.add_row([2, 'G160M', 1623, 18000])
 cos_res.add_row([2, 'G140L', 1105, 1300])
 cos_res.add_row([2, 'G140L', 1280, 1700])
 
-
-# spectral resolution for LP 3
+# spectral resolving power for LP 3
 cos_res.add_row([3, 'G130M', 1222, 12000])
 cos_res.add_row([3, 'G130M', 1291, 16500])
 cos_res.add_row([3, 'G130M', 1300, 16500])
@@ -958,8 +1064,7 @@ cos_res.add_row([3, 'G160M', 1623, 17000])
 cos_res.add_row([3, 'G140L', 1105, 1500])
 cos_res.add_row([3, 'G140L', 1280, 1900])
 
-
-# spectral resolution for LP 4
+# spectral resolving power for LP 4
 cos_res.add_row([4, 'G130M', 1222, 13500])
 cos_res.add_row([4, 'G130M', 1291, 14500])
 cos_res.add_row([4, 'G130M', 1300, 15000])
@@ -977,4 +1082,3 @@ cos_res.add_row([4, 'G160M', 1623, 16000])
 cos_res.add_row([4, 'G140L', 800, 700])
 cos_res.add_row([4, 'G140L', 1105, 900])
 cos_res.add_row([4, 'G140L', 1280, 1000])
-
