@@ -2,8 +2,9 @@
 CALCOS pipeline. Additionally, it adapts the extraction windows in the _1dx 
 files and PHA limits in the _pha files. 
 
-Author: Kirill Makan
+Authors: Kirill Makan, Gabor Worseck
 '''
+version = '1.2'
 
 import os
 import sys
@@ -11,7 +12,7 @@ import sys
 from astropy.io import fits
 from astropy.table import Table
 
-from faintcos_config import *
+#from faintcos_config import *
 
 
 
@@ -30,10 +31,16 @@ def get_files():
     '''
       
     path_sci = "."
-    
-    # path to science was given in the command line?
-    if len(sys.argv) > 1:
+
+    # Get paths to science data and FaintCOS config file from command line.
+    # If 2nd path to config file is given then frontload it into the search path for imports to force local import.
+    # Then import FaintCOS config file
+    if len(sys.argv) == 3:
         path_sci = sys.argv[1]
+        sys.path.insert(0, sys.argv[2])
+    else:
+        if len(sys.argv) == 2:
+            path_sci = sys.argv[1]
     
     # find all rawtag files in the directory
     path_rawtag = [f for f in os.listdir(path_sci) if "rawtag" in f]
@@ -215,8 +222,10 @@ def set_pha_limits(path_ref):
     print("DONE")        
     print("Updated following files: " + str(pha_files))            
         
-if __name__ == "__main__": 
+if __name__ == "__main__":
+    print("FaintCOS v"+version, flush=True)
     path_rawtag, path_ref = get_files()
+    from faintcos_config import *
     change_rawtag(path_rawtag, path_ref)
     set_aperture(path_rawtag, path_ref)
     set_pha_limits(path_ref)
