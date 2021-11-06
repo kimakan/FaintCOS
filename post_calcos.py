@@ -170,7 +170,7 @@ def calc_conf_lim_kraft(counts, bkg):
     return cnt_err_down, cnt_err_up
 
 
-def calc_lya_scatter_model(gcounts, wave_arr):
+def calc_lya_scatter_model(gcounts, wave_arr, dq):
     '''
     Purpose:
     Calculation of scattered geocoronal Lyman alpha emission in COS G140L spectra
@@ -217,8 +217,11 @@ def calc_lya_scatter_model(gcounts, wave_arr):
                             0.84194565 ,0.8906022   ,0.92548954  ,0.9521525 ]])
     err_up_sys = np.interp(wave_arr, rel_err[0], rel_err[1])
     err_down_sys = np.interp(wave_arr, rel_err[0], rel_err[2])
-    
-    CountsInLyaRegion = gcounts[(wave_arr <= 1215.97) & (wave_arr >= 1215.37)]
+
+    CountsInLyaRegion = gcounts[(wave_arr <= 1215.97) & (wave_arr >= 1215.37) & (dq == 0)]
+    if len(CountsInLyaRegion)<3:
+        print('Warning: Grid wire on Lyman alpha. Peak determined from 5A region.')
+        CountsInLyaRegion = gcounts[(wave_arr <= 1218.17) & (wave_arr >= 1213.17) & (dq == 0)] 
     Clya = np.mean(CountsInLyaRegion)
     
     Blya = a*Clya*np.exp(-np.power(wave_arr - lam_0, 2.)/(2.*b**2))
@@ -1007,7 +1010,7 @@ if __name__ == "__main__":
             if opt_elem == 'G140L' and (cenwave == 800 or cenwave == 1105):
                 bkg_lya, bkg_lya_err_up, bkg_lya_err_down = \
                 calc_lya_scatter_model(data_x1d['GCOUNTS'][0], \
-                                       data_x1d['WAVELENGTH'][0])
+                                       data_x1d['WAVELENGTH'][0], data_x1d['DQ'][0])
             else:
                 bkg_lya = np.zeros(shape = len(gross), dtype = np.float32)
                 bkg_lya_err_up = np.zeros(shape = len(gross), dtype = np.float32)
