@@ -221,8 +221,10 @@ def calc_lya_scatter_model(gcounts, wave_arr, dq):
     CountsInLyaRegion = gcounts[(wave_arr <= 1215.97) & (wave_arr >= 1215.37) & (dq == 0)]
     if len(CountsInLyaRegion)<3:
         print('Warning: Grid wire on Lyman alpha. Peak determined from 5A region.')
-        CountsInLyaRegion = gcounts[(wave_arr <= 1218.17) & (wave_arr >= 1213.17) & (dq == 0)] 
-    Clya = np.mean(CountsInLyaRegion)
+        CountsInLyaRegion = gcounts[(wave_arr <= 1218.17) & (wave_arr >= 1213.17) & (dq == 0)]
+        Clya = np.percentile(CountsInLyaRegion,75)
+    else:
+        Clya = np.mean(CountsInLyaRegion)
     
     Blya = a*Clya*np.exp(-np.power(wave_arr - lam_0, 2.)/(2.*b**2))
     
