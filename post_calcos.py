@@ -30,7 +30,7 @@ Note: The choice of the primary output spectrum depends on the number of data se
 
 Authors: Kirill Makan, Gabor Worseck
 '''
-version = '1.2'
+version = '1.21'
 
 import os
 import sys
@@ -687,11 +687,13 @@ if __name__ == "__main__":
         datasets['FILE_ID','TARGNAME','DATE-OBS','XPOSURE','DISPERSR','CENWAVE','EXPA','EXPB'].pprint()
         print("###################################################################")
         print("\n")
-    
+
+        """
         a = input("Do you wish to proceed? (y/n)")
         if a != 'y' and a != 'Y':
             print("Canceled by user!")
             sys.exit()
+        """
     
         # determine background (dark current and scattered light) for every corrtag
         corr_files = [path_sci + s for s in list(corrtags['CORRTAG_FILE'])] 
@@ -757,19 +759,23 @@ if __name__ == "__main__":
                 print("Not enough dark frames for this exposure taken at voltage level {} !".format(voltage))
                 print("This likely means that the science voltage level has not been monitored by STScI.")
                 print("A mismatch in the science vs. dark frame voltage will lead to ~10% systematic errors in the estimated dark current (Makan et al. 2021, ApJ, 912, 38).")
+                """
                 a = input("Do you wish to include dark frames taken at all voltage levels? (y/n)")
                 if a == 'y' or a == 'Y':
-                    val_darks = []
-                    sel_darks = darkframes[(darkframes['SEGMENT'] == segm) & \
-                                           (darkframes['EXPSTART'] > exp_start - DARK_EXPSTART_INTERVAL) & \
-                                           (darkframes['EXPSTART'] < exp_start + DARK_EXPSTART_INTERVAL)]
-                    for d in sel_darks['PATH']:
-                        val_darks.append(fits.open(d))
-                    if len(val_darks) >= MIN_DARKS:
-                        print(str(len(val_darks)) + " valid dark frames.")
+                """
+                val_darks = []
+                sel_darks = darkframes[(darkframes['SEGMENT'] == segm) & \
+                                       (darkframes['EXPSTART'] > exp_start - DARK_EXPSTART_INTERVAL) & \
+                                       (darkframes['EXPSTART'] < exp_start + DARK_EXPSTART_INTERVAL)]
+                for d in sel_darks['PATH']:
+                    val_darks.append(fits.open(d))
+                if len(val_darks) >= MIN_DARKS:
+                    print(str(len(val_darks)) + " valid dark frames.")
+                """
                 else:
                     print("Canceled by user!")
                     sys.exit()
+                """
         
             # find the dispersion function for the Doppler shift xdopp(wavelength), this defines the calibration windows
             wl = np.array(corr_data[(corr_data['WAVELENGTH'] > 1) & \
