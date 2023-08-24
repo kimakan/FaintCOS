@@ -149,7 +149,7 @@ def calc_conf_lim_kraft(counts, bkg):
             cnt_err_down[i] = cnt_err_up[i]
         else:
             try:
-                limits = poisson_conf_interval(counts[i], \
+                limits = poisson_conf_interval(int(counts[i]), \
                                                background=bkg[i], \
                                                confidence_level=0.6827, \
                                                interval='kraft-burrows-nousek')
